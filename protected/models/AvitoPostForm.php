@@ -58,7 +58,15 @@ class AvitoPostForm extends CFormModel
 		$this->save_image($captcha, 'images/captcha.jpeg', $cookies);
 
 		// Распознаем капчу
-		$captchaText=$this->recognize(dirname(Yii::app()->basePath) . "\images\captcha.jpeg");
+		$captchaPath = dirname(Yii::app()->basePath) . "/images/captcha.jpeg";
+		
+		if (!file_exists($captchaPath))
+		{
+			$result['error'] = 'Файл с капчей для распознавания не найден.';
+			return $result;
+		}
+
+		$captchaText=$this->recognize($captchaPath);
 
 		if ($captchaText==false)
 		{
