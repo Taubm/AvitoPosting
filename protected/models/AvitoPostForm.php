@@ -23,7 +23,9 @@ class AvitoPostForm extends CFormModel
 			// email has to be a valid email address
 			array('email', 'email'),
 			// phone number is numerical
-			array('phone', 'numerical')
+			array('phone', 'numerical'),
+			// phone number length = 11
+			array('phone', 'length', 'min'=>11, 'max'=>11)
 		);
 	}
 
@@ -58,6 +60,12 @@ class AvitoPostForm extends CFormModel
 		// Распознаем капчу
 		$captchaText=$this->recognize(dirname(Yii::app()->basePath) . "\images\captcha.jpeg");
 
+		if ($captchaText==false)
+		{
+			$result['error'] = 'Не удалось распознать капчу, попробуйте позже.';
+			return $result;
+		}
+
 		// Форма для зарегистрированных и незарегистрированных email отличается, учитываем это
 		$mode = 'exist';
 		if (stripos($data, 'password-confirm-field')!=false) {
@@ -70,10 +78,10 @@ class AvitoPostForm extends CFormModel
 		// Отдаем ссылку на размещенное объявление
 		preg_match('/<div class=\"b-content b-content_payment-finish\"[\s\S]*?<\/div>/', $data, $m);
 		
-		// Если в ответе не содержится ссылки на объявление, то переданные данные были неверны: неверная капча или пароль
+		// Если в ответе не содержится ссылки на объявление, то переданные данные были неверны
 		if (empty($m)) 
 		{
-			$result['error'] = 'Не удалось разместить объявление. Не удалось распознать капчу или пароль от аккаунта не совпадает с email.';
+			$result['error'] = 'Не удалось разместить объявление. Переданные данные неверны.';
 			return $result;
 		}
 		$result['link'] = str_replace('href="/', 'href="http://www.avito.ru/', $m[0]);
@@ -173,10 +181,6 @@ class AvitoPostForm extends CFormModel
 	// Получаем куки для дальнейших запросов
 	private function getCookies()
 	{
-		$headers = array(
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        ); 
- 
 		$ch = curl_init();
 
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
