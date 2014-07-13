@@ -29,38 +29,59 @@ class AvitoPostForm extends CFormModel
 
 	public function post()
 	{
+		$result = ['error'=>'', 'link'=>''];
 		// Получаем куки
 		$cookies = $this->getCookies();
+
+		// Если получили меньше 3 кук - возможно, изменился алгоритм работы сайта
+		if (count($cookies)<3) 
+		{
+			$result['error'] = 'Не удалось разместить объявление. Возможно, изменился алгоритм размещения объявления.';
+			return $result;
+		}
 
 		// Размещаем объявление и получаем страницу с капчей
 		$data = $this->addItem($cookies);
 		
 		// Извлекаем номер капчи, сохраняем в файл для отправки на антигейт
 		preg_match('/captcha\?[0-9]*/', $data, $captcha);
+
+		// Если в ответе нет капчи, то изменился алгоритм или аккаунт забанен
+		if (empty($captcha)) 
+		{
+			$result['error'] = 'Не удалось получить капчу. Возможно, изменился алгоритм размещения объявления или аккаунт с указанным email забанен.';
+			return $result;
+		}
 		$captcha=$captcha[0];
 		$this->save_image($captcha, 'images/captcha.jpeg', $cookies);
 
 		// Распознаем капчу
-		$captcha=$this->recognize(dirname(Yii::app()->basePath) . "\images\captcha.jpeg");
+		$captchaText=$this->recognize(dirname(Yii::app()->basePath) . "\images\captcha.jpeg");
 
-		// Отсылаем подтверждение размещения
+		// Форма для зарегистрированных и незарегистрированных email отличается, учитываем это
 		$mode = 'exist';
 		if (stripos($data, 'password-confirm-field')!=false) {
 			$mode = 'new';
 		}
 
-		$data = $this->confirm($cookies, $captcha, $mode);
+		// Отсылаем подтверждение размещения
+		$data = $this->confirm($cookies, $captchaText, $mode);
 
 		// Отдаем ссылку на размещенное объявление
 		preg_match('/<div class=\"b-content b-content_payment-finish\"[\s\S]*?<\/div>/', $data, $m);
-
-		// Получаем ссылку на созданное объявление и возвращаем ее
-		$result = str_replace('href="/', 'href="http://www.avito.ru/', $m[0]);
+		
+		// Если в ответе не содержится ссылки на объявление, то переданные данные были неверны: неверная капча или пароль
+		if (empty($m)) 
+		{
+			$result['error'] = 'Не удалось разместить объявление. Не удалось распознать капчу или пароль от аккаунта не совпадает с email.';
+			return $result;
+		}
+		$result['link'] = str_replace('href="/', 'href="http://www.avito.ru/', $m[0]);
 		return $result;
 	}
 
 	// Распознаем капчу
-	function recognize(
+	private function recognize(
 	            $filename,
 	            $apikey='44bb304bb17425d35c79c71e5dfc7584',
 	            $is_verbose = false,
@@ -167,9 +188,9 @@ class AvitoPostForm extends CFormModel
 
 		preg_match_all('/^Set-Cookie:\s*([^;]*)/mi', $result, $m);
 
-		$cookies[0] = split('=', $m[0][0])[1];
-		$cookies[1] = split('=', $m[0][1])[1];
-		$cookies[2] = split('=', $m[0][2])[1];
+		$cookies[0] = explode('=', $m[0][0])[1];
+		$cookies[1] = explode('=', $m[0][1])[1];
+		$cookies[2] = explode('=', $m[0][2])[1];
 
 		return $cookies;
 	}

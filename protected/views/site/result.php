@@ -7,7 +7,9 @@ $this->breadcrumbs=array(
 	'Result',
 );
 ?>
-
+<div class="error">
+<?php echo $result['error']; ?>
+</div>
 <div class="result">
-<?php echo $result; ?>
+<?php echo $result['link']; ?>
 </div>
